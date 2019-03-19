@@ -179,17 +179,25 @@ class PathBuilder(Visitor):
 
 r = PathBuilder(program).root
 
-line_number = 0
-for node in r.decendants():
-    line = getattr(node.node, 'item', None)
-    if line:
-        if line_number != line.span[0]:
+
+def dump_line_info(root):
+    line_number = 0
+    for node in reversed(list(root.ancestors())):
+        line = getattr(node.node, 'item', None)
+        if line:
             line_number = line.span[0]
-            print(line_number)
+    if line_number != 0:
+        print(line_number)
 
-    print(node.path())
-#    print(node.node)
+    for node in root.decendants():
+        line = getattr(node.node, 'item', None)
+        if line:
+            if line_number != line.span[0]:
+                line_number = line.span[0]
+                print(line_number)
+        print(node.path())
 
+dump_line_info(r)
 print(r)
 for node in r.children:
     print(r)
@@ -198,12 +206,59 @@ print(r.children)
 print(r.find_child('Module'))
 
 
+def datatype_desc(data_component):
+    data_name = data_component.find_decendant(['/Component_Decl/Name', '/Proc_Decl/Name']).node
+
+    is_array = bool(list(
+        data_component.find_decendants(['/Component_Decl/Deferred_Shape_Spec'])))
+
+    # Find exactly one of...
+    if str(data_component.typename) == 'Proc_Component_Def_Stmt':
+        component_type = data_component.find_decendant('/Name')
+        return '{} : procedure <<pointer>>'.format(data_name)
+    else:
+        component_type = data_component.find_decendant(
+            ['/Declaration_Type_Spec/Type_Name',
+             '/Intrinsic_Type_Spec/str',
+            ])
+
+        if component_type.typename == 'Intrinsic_Type_Spec':
+            pass
+
+        type_str = str(component_type.node).lower()
+        if is_array:
+            type_str = type_str + '[]'
+
+        return '{} : {}'.format(data_name, type_str)
+
+
 lines = []
 for mod in r.find_decendants('Module'):
     for f in r.find_decendants('Module_Stmt/Name'):
         print(f, f.node)
-    mod_name = r.find_decendant('Module_Stmt/Name')
-    for type_def in r.find_decendants('Derived_Type_Def'):
+
+    procedures = {}
+    functions = {}
+    for func in mod.find_decendants('/Module_Subprogram_Part/Function_Subprogram/Function_Stmt'):
+        print('----------')
+        print('FOO')
+        dump_line_info(func)
+        # Possible to have multiple names, e.g. "func_name(arg_name)"
+        func_name = str(next(func.find_decendants('/Name')).node)
+
+        assert func_name not in procedures
+        functions[func_name] = func
+
+    for proc in mod.find_decendants('/Module_Subprogram_Part/Subroutine_Subprogram/Subroutine_Stmt'):
+        # Possible to have multiple names, e.g. "func_name(arg_name)"
+        proc_name = str(next(proc.find_decendants('/Name')).node)
+        procedures[proc_name] = proc
+
+    print('FUNCS:', procedures.keys())
+    print(functions.keys())
+
+    mod_name = mod.find_decendant('/Module_Stmt/Name')
+    for type_def in mod.find_decendants('Derived_Type_Def'):
         #for name in type_def.find_decendants('*/Type_Name'):
         #for name in type_def.find_decendants('/Derived_Type_Stmt/Type_Name'):
             #print(name)
@@ -217,33 +272,60 @@ for mod in r.find_decendants('Module'):
             '/Component_Part/Data_Component_Def_Stmt',
             '/Component_Part/Proc_Component_Def_Stmt',
             ]):
-            if False or str(name.node) == 'Field_Type':
-                print()
-                for node in data_component.decendants():
-                    print(node.path())
-                print(data_component.node)
+            private_or_public = '-'
+            access_spec = data_component.find_decendants(['Access_Spec'])
+            for spec in access_spec:
+                if str(spec.node).lower() == 'public':
+                    private_or_public = '+'
 
-            data_name = data_component.find_decendant(['/Component_Decl/Name', '/Proc_Decl/Name']).node
-
-            # Find exactly one of...
-            if str(data_component.typename) == 'Proc_Component_Def_Stmt':
-                component_type = data_component.find_decendant('/Name')
-                lines.append(' -{} : procedure <<pointer>>'.format(data_name))
-            else:
-                component_type = data_component.find_decendant(
-                    ['/Declaration_Type_Spec/Type_Name',
-                     '/Intrinsic_Type_Spec/str',
-                    ])
-
-                if component_type.typename == 'Intrinsic_Type_Spec':
-                    pass
-
-                lines.append(' -{} : {}'.format(data_name, str(component_type.node).lower()))
+            lines.append(' {}{}'.format(private_or_public, datatype_desc(data_component)))
 
             for spec in data_component.find_decendants('Component_Attr_Spec'):
                 if str(spec.node) == 'POINTER':
                     lines[-1] += ' <<pointer>>'
-       
+      
+        lines.append('')
+        for type_bound_procedure in type_def.find_decendants('/Type_Bound_Procedure_Part/Specific_Binding'):
+            name = str(type_bound_procedure.find_child('Name').node)
+            return_info = ''
+            proc = procedures.get(name, None)
+            func = functions.get(name, None)
+
+            routine = proc or func
+            print('-------------==============')
+            print(name)
+            variables = {}
+            args = []
+            if routine is not None:
+                for type_decl in routine.parent.find_decendants('Specification_Part/Type_Declaration_Stmt'):
+                    # We can have multiple variables of a particular type.
+                    for var in type_decl.find_decendants('/Entity_Decl/Name'):
+                        component_type = type_decl.find_decendant(
+                            ['/Declaration_Type_Spec/Type_Name',
+                             '/Intrinsic_Type_Spec/str',
+                            ])
+                        type_str = str(component_type.node).lower()
+                        variables[str(var.node)] = type_str
+
+                print(variables.keys())
+
+                for arg in routine.find_decendants('/Dummy_Arg_List/Name'):
+                    if not str(arg.node) == 'self':
+                        if str(arg.node) in variables:
+                            args.append('{} : {}'.format(arg.node, variables[str(arg.node)]))
+                        else:
+                            args.append(str(arg.node))
+
+            if proc is None:
+                return_info = 'func'
+            if return_info:
+                return_info = ' : ' + return_info
+            if args:
+                args = ' ' + ', '.join(args) + ' '
+            else:
+                args = ''
+            lines.append(' +{}({}){}'.format(name, args, return_info))
+         
         lines.append('}')
         lines.append('')
 

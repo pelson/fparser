@@ -19,12 +19,13 @@ def fn_to_re(pattern):
         full_pattern = full_pattern + '$'
     elif '/' not in pattern:
         # We have defined a pattern that must be the last element.
-        full_pattern = '/' + full_pattern + '$'
+        full_pattern = '/' + full_pattern #+ '$'
     else:
         # If the pattern didn't start with a slash that means we want the pattern
         # to start at the beginning of a path level.
         # (e.g. "bc" should match "bc" but not "abc")
         full_pattern = '.*/' + full_pattern
+    full_pattern = full_pattern + '$'
     return full_pattern
 
 import six
@@ -98,8 +99,16 @@ import pytest
     ['/b/**', '/a/b/c', 'no match'],
     ['a', '/ab', 'no match'],
     ['b', '/ab', 'no match'],
+    ['b/c', '/a/b/c', 'match'],
     ['b/c', '/ab/c', 'no match'],
     ['/b/c', '/ab/c', 'no match'],
+    ['b/c/*', '/a/b/c/d', 'match'],
+    ['b/**', '/a/b/c/d', 'match'],
+    ['/b/c/*', '/a/b/c/d', 'no match'],
+    ['b/c', '/a/b/c/d', 'no match'],
+    ['b/c/', '/a/b/c/d', 'no match'],
+    ['/b/c', '/a/b/c/d', 'no match'],
+
 ])
 def test_path_match(pattern, path, expected):
     result = path_match(pattern, path)
