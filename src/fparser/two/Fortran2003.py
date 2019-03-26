@@ -102,8 +102,9 @@ class Comment(Base):
     '''
     subclass_names = []
 
-    @show_result
-    def __new__(cls, string, parent_cls=None):
+#    @show_result
+    @classmethod
+    def from_source(cls, string, parent_cls=None):
         """
         Create a new Comment instance.
 
@@ -129,7 +130,7 @@ class Comment(Base):
                 return
             if isinstance(item, readfortran.Comment):
                 # This effectively recursively calls this routine
-                return Comment(item)
+                return Comment.from_source(item)
             else:
                 # We didn't get a comment so put the item back in the FIFO
                 reader.put_item(item)
@@ -180,12 +181,12 @@ def add_comments_includes(content, reader):
                   :py:class:`fparser.common.readfortran.FortranStringReader`
 
     '''
-    obj = Comment(reader)
-    obj = Include_Stmt(reader) if not obj else obj
+    obj = Comment.from_source(reader)
+    obj = Include_Stmt.from_source(reader) if not obj else obj
     while obj:
         content.append(obj)
-        obj = Comment(reader)
-        obj = Include_Stmt(reader) if not obj else obj
+        obj = Comment.from_source(reader)
+        obj = Include_Stmt.from_source(reader) if not obj else obj
 
 
 class Program(BlockBase):  # R201
@@ -198,8 +199,8 @@ class Program(BlockBase):  # R201
     subclass_names = []
     use_names = ['Program_Unit']
 
-    @show_result
-    def __new__(cls, string):
+    @classmethod
+    def from_source(cls, source, parent_cls=None):
         '''Wrapper around base class __new__ to catch an internal NoMatchError
         exception and raise it as an external FortranSyntaxError exception.
 
@@ -210,11 +211,12 @@ class Program(BlockBase):  # R201
 
         '''
         try:
-            return Base.__new__(cls, string)
+            return super(Program, cls).from_source(source, parent_cls=parent_cls or [cls])
+            #return Base.from_source(source, parent_cls=[cls])
         except NoMatchError:
             # At the moment there is no useful information provided by
             # NoMatchError so we pass on an empty string.
-            raise FortranSyntaxError(string, "")
+            raise FortranSyntaxError(source, "")
 
     @staticmethod
     def match(reader):
@@ -237,7 +239,7 @@ class Program(BlockBase):  # R201
         add_comments_includes(content, reader)
         try:
             while True:
-                obj = Program_Unit(reader)
+                obj = Program_Unit.from_source(reader)
                 content.append(obj)
                 add_comments_includes(content, reader)
                 # cause a StopIteration exception if there are no more lines
@@ -2580,7 +2582,7 @@ class Entity_Decl(Base):  # R504
         m = pattern.name.match(string)
         if m is None:
             return
-        name = Name(m.group())
+        name = Name.from_source(m.group())
         newline = string[m.end():].lstrip()
         if not newline:
             return name, None, None, None
@@ -3197,8 +3199,8 @@ class Dimension_Stmt(StmtBase):  # R535
             i = s.find('(')
             if i == -1:
                 return
-            decls.append((Array_Name(repmap(s[:i].rstrip())),
-                          Array_Spec(repmap(s[i+1:-1].strip()))))
+            decls.append((Array_Name.from_source(repmap(s[:i].rstrip())),
+                          Array_Spec.from_source(repmap(s[i+1:-1].strip()))))
         if not decls:
             return
         return decls,
@@ -3346,9 +3348,9 @@ class Cray_Pointer_Decl(Base):  # pylint: disable=invalid-name
         pointer_name = repmap(split_list[0]).strip()
         pointee_str = repmap(split_list[1]).strip()
         if pointee_str[-1] == ")":
-            return Cray_Pointer_Name(pointer_name), \
-                Cray_Pointee_Decl(pointee_str)
-        return Cray_Pointer_Name(pointer_name), Cray_Pointee_Name(pointee_str)
+            return Cray_Pointer_Name.from_source(pointer_name), \
+                Cray_Pointee_Decl.from_source(pointee_str)
+        return Cray_Pointer_Name.from_source(pointer_name), Cray_Pointee_Name.from_source(pointee_str)
 
     def tostr(self):
         '''
@@ -6219,7 +6221,7 @@ class Outer_Shared_Do_Construct(BlockBase):  # R839
     def match(reader):
         content = []
         for cls in [Label_Do_Stmt, Do_Body, Shared_Term_Do_Construct]:
-            obj = cls(reader)
+            obj = cls.from_source(reader)
             if obj is None:  # todo: restore reader
                 return
             content.append(obj)
@@ -9554,7 +9556,7 @@ class Subroutine_Stmt(StmtBase):  # R1232
         m = pattern.name.match(line)
         if m is None:
             return
-        name = Subroutine_Name(m.group())
+        name = Subroutine_Name.from_source(m.group())
         line = line[m.end():].lstrip()
         dummy_args = None
         if line.startswith('('):
@@ -9563,11 +9565,11 @@ class Subroutine_Stmt(StmtBase):  # R1232
                 return
             dummy_args = line[1:i].strip() or None
             if dummy_args is not None:
-                dummy_args = Dummy_Arg_List(repmap(dummy_args))
+                dummy_args = Dummy_Arg_List.from_source(repmap(dummy_args))
             line = line[i+1:].lstrip()
         binding_spec = None
         if line:
-            binding_spec = Proc_Language_Binding_Spec(repmap(line))
+            binding_spec = Proc_Language_Binding_Spec.from_source(repmap(line))
         return prefix, name, dummy_args, binding_spec
     match = staticmethod(match)
 

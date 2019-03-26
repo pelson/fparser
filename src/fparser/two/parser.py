@@ -92,6 +92,15 @@ def get_module_classes(input_module):
     return module_cls_members
 
 
+class Parser(object):
+    def __init__(self, root, types):
+        self.root_type = root
+        self.types = types
+
+    def __call__(self, source):
+        return self.root_type.from_source(source)
+
+
 class ParserFactory(object):
     '''Creates a parser suitable for the specified Fortran standard.'''
 
@@ -130,7 +139,7 @@ class ParserFactory(object):
             self._setup(f2003_cls_members)
             # the class hierarchy has been set up so return the top
             # level class that we start from when parsing Fortran code.
-            return Fortran2003.Program
+            return Parser(Fortran2003.Program, f2003_cls_members)
         elif std == "f2008":
             # we need to find all relevent classes in our Fortran2003
             # and Fortran2008 files and then ensure that where classes
@@ -153,7 +162,7 @@ class ParserFactory(object):
             # level class that we start from when parsing Fortran
             # code. Fortran2008 does not extend the top level class so
             # we return the Fortran2003 one.
-            return Fortran2003.Program
+            return Parser(Fortran2003.Program, f2008_cls_members)
         else:
             raise ValueError("'{0}' is an invalid standard".format(std))
 

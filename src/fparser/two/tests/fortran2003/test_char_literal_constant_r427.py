@@ -46,57 +46,57 @@ def test_match_valid():
     ''' Test that valid input is parsed correctly '''
 
     # simple, single quotes
-    obj = Char_Literal_Constant("'DO'")
+    obj = Char_Literal_Constant.from_source("'DO'")
     assert isinstance(obj, Char_Literal_Constant), repr(obj)
     assert str(obj) == "'DO'"
     assert repr(obj) == 'Char_Literal_Constant("\'DO\'", None)'
 
     # simple, double quotes
-    obj = Char_Literal_Constant('"DO"')
+    obj = Char_Literal_Constant.from_source('"DO"')
     assert isinstance(obj, Char_Literal_Constant), repr(obj)
     assert str(obj) == '"DO"'
 
     # single quotes inside single quotes (two means one)
-    obj = Char_Literal_Constant("'DON''T'")
+    obj = Char_Literal_Constant.from_source("'DON''T'")
     assert isinstance(obj, Char_Literal_Constant), repr(obj)
     assert str(obj) == "'DON''T'"
 
     # double quotes inside double quotes (two means one)
-    obj = Char_Literal_Constant('"""busy"""')
+    obj = Char_Literal_Constant.from_source('"""busy"""')
     assert isinstance(obj, Char_Literal_Constant), repr(obj)
     assert str(obj) == '"""busy"""'
 
     # single quotes, spaces
-    obj = Char_Literal_Constant("  '  D  O  '  ")
+    obj = Char_Literal_Constant.from_source("  '  D  O  '  ")
     assert isinstance(obj, Char_Literal_Constant), repr(obj)
     assert str(obj) == "'  D  O  '"
     assert repr(obj) == 'Char_Literal_Constant("\'  D  O  \'", None)'
 
     # Single quotes, empty string
-    obj = Char_Literal_Constant("''")
+    obj = Char_Literal_Constant.from_source("''")
     assert isinstance(obj, Char_Literal_Constant), repr(obj)
     assert str(obj) == "''"
 
     # Double quotes, empty string
-    obj = Char_Literal_Constant('""')
+    obj = Char_Literal_Constant.from_source('""')
     assert isinstance(obj, Char_Literal_Constant), repr(obj)
     assert str(obj) == '""'
 
     # include a kind parameter (which says what character set to
     # expect)
-    obj = Char_Literal_Constant('KP_"DO"')
+    obj = Char_Literal_Constant.from_source('KP_"DO"')
     assert isinstance(obj, Char_Literal_Constant), repr(obj)
     assert str(obj) == 'KP_"DO"'
     assert repr(obj) == 'Char_Literal_Constant(\'"DO"\', \'KP\')'
 
     # include a kind parameter with spaces
-    obj = Char_Literal_Constant('  KP  _  "  D  O  "  ')
+    obj = Char_Literal_Constant.from_source('  KP  _  "  D  O  "  ')
     assert isinstance(obj, Char_Literal_Constant), repr(obj)
     assert str(obj) == 'KP_"  D  O  "'
     assert repr(obj) == 'Char_Literal_Constant(\'"  D  O  "\', \'KP\')'
 
     # additional characters
-    obj = Char_Literal_Constant("'()!$%^&*_+=-01~@#;:/?.>,<|'")
+    obj = Char_Literal_Constant.from_source("'()!$%^&*_+=-01~@#;:/?.>,<|'")
     assert isinstance(obj, Char_Literal_Constant), repr(obj)
     assert str(obj) == "'()!$%^&*_+=-01~@#;:/?.>,<|'"
 
@@ -109,7 +109,7 @@ def test_match_invalid():
                     "A 'A'", "'A'A", "'A' A", "_'A'", "$_'A'", "A A_'A'",
                     "A_'A'A", "A_'A' A"]:
         with pytest.raises(NoMatchError) as excinfo:
-            _ = Char_Literal_Constant(example)
+            _ = Char_Literal_Constant.from_source(example)
         assert "Char_Literal_Constant: '{0}'".format(example) in \
             str(excinfo.value)
 
@@ -119,7 +119,7 @@ def test_tostr_invalid1(monkeypatch):
 
     # test internal error in tostr() when the items list is not the
     # expected size
-    obj = Char_Literal_Constant("'A'")
+    obj = Char_Literal_Constant.from_source("'A'")
     monkeypatch.setattr(obj, "items", ['A'])
     with pytest.raises(InternalError) as excinfo:
         _ = str(obj)
@@ -131,7 +131,7 @@ def test_tostr_invalid2(monkeypatch):
 
     # test internal error in tostr() when the items list index 0 has
     # no content
-    obj = Char_Literal_Constant("'A'")
+    obj = Char_Literal_Constant.from_source("'A'")
     monkeypatch.setattr(obj, "items", [None, None])
     with pytest.raises(InternalError) as excinfo:
         _ = str(obj)

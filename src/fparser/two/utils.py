@@ -251,6 +251,27 @@ class Base(ComparableMixin):
     # 'subclass_names' list belonging to each class defined in this module.
     subclasses = {}
 
+    @classmethod
+    def fetch_all_subclasses(cls, seen=None, recursion_depth=1):
+        '''Given a type (e.g. Fortran2003.Primary), return all possible subtypes
+
+        Note: recursive search.
+        '''
+        seen = seen or []
+        if cls not in seen:
+            seen.append(cls)
+
+        if recursion_depth > 0:
+            subclasses = getattr(cls, 'subclass_names', [])
+            import sys
+            for subclass_name in subclasses:
+                module = sys.modules[cls.__module__]
+                subclass = getattr(module, subclass_name, None)
+                if subclass is not None and subclass not in seen:
+                    seen.append(subclass)
+                    subclass.fetch_all_subclasses(seen, recursion_depth=recursion_depth-1)
+        return seen
+
     @show_result
     def __new__(cls, string, parent_cls=None):
         """
@@ -262,6 +283,21 @@ class Base(ComparableMixin):
         :param parent_cls: the parent class of this object
         :type parent_cls: :py:type:`type`
         """
+        raise RuntimeError('DEPRECATED USE OF NEW.')
+        return cls.from_source(string, parent_cls=parent_cls)
+
+    @classmethod
+    def from_source(cls, string, parser=None, parent_cls=None):
+        """
+        Create a new instance of this object.
+
+        :param type cls: the class of object to create
+        :param string: (source of) Fortran string to parse
+        :type string: str or :py:class:`FortranReaderBase`
+        :param parent_cls: the parent class of this object
+        :type parent_cls: :py:type:`type`
+        """
+
         from fparser.common import readfortran
         if parent_cls is None:
             parent_cls = [cls]
@@ -270,7 +306,6 @@ class Base(ComparableMixin):
 
         # Get the class' match method if it has one
         match = cls.__dict__.get('match')
-
         if isinstance(string, FortranReaderBase) and \
            match and not issubclass(cls, BlockBase):
             reader = string
@@ -283,7 +318,8 @@ class Base(ComparableMixin):
                 obj = None
             else:
                 try:
-                    obj = item.parse_line(cls, parent_cls)
+                    obj = cls.from_source(item.line, parent_cls=parent_cls)
+                    #obj = item.parse_line(cls, parent_cls)
                 except NoMatchError:
                     obj = None
             if obj is None:
@@ -320,7 +356,7 @@ class Base(ComparableMixin):
                 if subcls in parent_cls:  # avoid recursion 2.
                     continue
                 try:
-                    obj = subcls(string, parent_cls=parent_cls)
+                    obj = subcls.from_source(string, parent_cls=parent_cls)
                 except NoMatchError as msg:
                     obj = None
                 if obj is not None:
@@ -440,7 +476,7 @@ content : tuple
             add_comments_includes(content, reader)
             # Now attempt to match the start of the block
             try:
-                obj = startcls(reader)
+                obj = startcls.from_source(reader)
             except NoMatchError:
                 obj = None
             if obj is None:
@@ -473,7 +509,7 @@ content : tuple
         while i < len(classes):
             if enable_do_label_construct_hook:
                 try:
-                    obj = startcls(reader)
+                    obj = startcls.from_source(reader)
                 except NoMatchError:
                     obj = None
                 if obj is not None:
@@ -485,7 +521,7 @@ content : tuple
             # Attempt to match the i'th subclass
             cls = classes[i]
             try:
-                obj = cls(reader)
+                obj = cls.from_source(reader)
             except NoMatchError:
                 obj = None
             if obj is None:
@@ -508,7 +544,6 @@ content : tuple
                    end_name.lower() != start_name.lower():
                     raise FortranSyntaxError(
                         reader, "Expecting name '{0}'".format(start_name))
-
             if endcls is not None and isinstance(obj, endcls_all):
                 if match_labels:
                     start_label, end_label = content[start_idx].\
@@ -657,7 +692,7 @@ class SequenceBase(Base):
             return
         lst = []
         for p in splitted:
-            lst.append(subcls(repmap(p.strip())))
+            lst.append(subcls.from_source(repmap(p.strip())))
         return separator, tuple(lst)
     match = staticmethod(match)
 
@@ -705,7 +740,7 @@ class UnaryOpBase(Base):
         if exclude_op_pattern is not None:
             if exclude_op_pattern.match(op):
                 return
-        return op, rhs_cls(rhs)
+        return op, rhs_cls.from_source(rhs)
     match = staticmethod(match)
 
 
@@ -746,8 +781,8 @@ class BinaryOpBase(Base):
             if exclude_op_pattern.match(op):
                 return
 
-        lhs_obj = lhs_cls(repmap(lhs))
-        rhs_obj = rhs_cls(repmap(rhs))
+        lhs_obj = lhs_cls.from_source(repmap(lhs))
+        rhs_obj = rhs_cls.from_source(repmap(rhs))
         return lhs_obj, op.replace(' ', ''), rhs_obj
     match = staticmethod(match)
 
@@ -771,13 +806,13 @@ class SeparatorBase(Base):
         if lhs:
             if lhs_cls is None:
                 return
-            lhs_obj = lhs_cls(repmap(lhs))
+            lhs_obj = lhs_cls.from_source(repmap(lhs))
         elif require_lhs:
             return
         if rhs:
             if rhs_cls is None:
                 return
-            rhs_obj = rhs_cls(repmap(rhs))
+            rhs_obj = rhs_cls.from_source(repmap(rhs))
         elif require_rhs:
             return
         return lhs_obj, rhs_obj
@@ -843,14 +878,14 @@ class KeywordValueBase(Base):
         if not lhs:
             if require_lhs:
                 return
-            return None, rhs_cls(rhs)
+            return None, rhs_cls.from_source(rhs)
         if isinstance(lhs_cls, str):
             if upper_lhs:
                 lhs = lhs.upper()
             if lhs_cls != lhs:
                 return
-            return lhs, rhs_cls(rhs)
-        return lhs_cls(lhs), rhs_cls(rhs)
+            return lhs, rhs_cls.from_source(rhs)
+        return lhs_cls.from_source(lhs), rhs_cls.from_source(rhs)
 
     def tostr(self):
         if self.items[0] is None:
@@ -918,7 +953,7 @@ class BracketBase(Base):
             return None
         if not line and (not cls or not require_cls):
             return left, None, right
-        return left, cls(line), right
+        return left, cls.from_source(line), right
 
     def tostr(self):
         '''
@@ -999,13 +1034,13 @@ class CallBase(Base):
             if lhs_cls != lhs:
                 return
         else:
-            lhs = lhs_cls(lhs)
+            lhs = lhs_cls.from_source(lhs)
         if rhs:
             if isinstance(rhs_cls, str):
                 if rhs_cls != rhs:
                     return
             else:
-                rhs = rhs_cls(rhs)
+                rhs = rhs_cls.from_source(rhs)
             return lhs, rhs
         elif require_rhs:
             return
@@ -1195,7 +1230,7 @@ class EndStmtBase(StmtBase):
         if line:
             if stmt_name is None:
                 return
-            return stmt_type, stmt_name(line)
+            return stmt_type, stmt_name.from_source(line)
         return stmt_type, None
 
     def init(self, stmt_type, stmt_name):
@@ -1294,7 +1329,7 @@ class WORDClsBase(Base):
                 return pattern, None
             if cls is None:
                 return
-            return pattern, cls(line)
+            return pattern, cls.from_source(line)
         m = pattern.match(string)
         if m is None:
             return
@@ -1316,7 +1351,7 @@ class WORDClsBase(Base):
             return pattern_value, None
         if cls is None:
             return
-        return pattern_value, cls(line)
+        return pattern_value, cls.from_source(line)
 
     def tostr(self):
         '''Convert the class into Fortran.
@@ -1374,7 +1409,7 @@ class Type_Declaration_StmtBase(StmtBase):
                 if m is None:
                     return
                 i = m.start()
-        type_spec = decl_type_spec_cls(repmap(line[:i].rstrip()))
+        type_spec = decl_type_spec_cls.from_source(repmap(line[:i].rstrip()))
         if type_spec is None:
             return
         line = line[i:].lstrip()
@@ -1382,7 +1417,7 @@ class Type_Declaration_StmtBase(StmtBase):
             i = line.find('::')
             if i == -1:
                 return
-            attr_specs = attr_spec_list_cls(repmap(line[1:i].strip()))
+            attr_specs = attr_spec_list_cls.from_source(repmap(line[1:i].strip()))
             if attr_specs is None:
                 return
             line = line[i:]
@@ -1390,7 +1425,7 @@ class Type_Declaration_StmtBase(StmtBase):
             attr_specs = None
         if line.startswith('::'):
             line = line[2:].lstrip()
-        entity_decls = entity_decl_list_cls(repmap(line))
+        entity_decls = entity_decl_list_cls.from_source(repmap(line))
         if entity_decls is None:
             return
         return type_spec, attr_specs, entity_decls

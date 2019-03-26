@@ -56,50 +56,50 @@ def test_valid(f2003_create):
     ''' Test that valid code is parsed correctly. '''
 
     # basic
-    obj = Main_Program(get_reader("program a\nend"))
+    obj = Main_Program.from_source(get_reader("program a\nend"))
     assert isinstance(obj, Main_Program)
     assert str(obj) == 'PROGRAM a\nEND PROGRAM a'
     assert repr(obj) == ("Main_Program(Program_Stmt('PROGRAM', Name('a')), "
                          "End_Program_Stmt('PROGRAM', None))")
 
     # name matching
-    obj = Main_Program(get_reader("program a\nend program a"))
+    obj = Main_Program.from_source(get_reader("program a\nend program a"))
     assert isinstance(obj, Main_Program)
     assert str(obj) == 'PROGRAM a\nEND PROGRAM a'
     assert repr(obj) == ("Main_Program(Program_Stmt('PROGRAM', Name('a')), "
                          "End_Program_Stmt('PROGRAM', Name('a')))")
 
     # mixed case name matching
-    obj = Main_Program(get_reader("program a\nend program A"))
+    obj = Main_Program.from_source(get_reader("program a\nend program A"))
     assert isinstance(obj, Main_Program)
     assert str(obj) == 'PROGRAM a\nEND PROGRAM A'
 
     # specification-part
-    obj = Main_Program(get_reader("program a\ninteger i\nend program a"))
+    obj = Main_Program.from_source(get_reader("program a\ninteger i\nend program a"))
     assert str(obj) == 'PROGRAM a\n  INTEGER :: i\nEND PROGRAM a'
 
     # execution-part
-    obj = Main_Program(get_reader("program a\ni=10\nend program a"))
+    obj = Main_Program.from_source(get_reader("program a\ni=10\nend program a"))
     assert str(obj) == 'PROGRAM a\n  i = 10\nEND PROGRAM a'
 
     # internal-subprogram-part
-    obj = Main_Program(get_reader("program a\ncontains\nsubroutine foo\n"
+    obj = Main_Program.from_source(get_reader("program a\ncontains\nsubroutine foo\n"
                                   "end\nend program a"))
     assert str(obj) == ("PROGRAM a\n  CONTAINS\n  SUBROUTINE foo\n"
                         "  END SUBROUTINE foo\nEND PROGRAM a")
 
     # specification-part + execution-part
-    obj = Main_Program(get_reader("program a\ninteger i\ni=10\nend program a"))
+    obj = Main_Program.from_source(get_reader("program a\ninteger i\ni=10\nend program a"))
     assert str(obj) == 'PROGRAM a\n  INTEGER :: i\n  i = 10\nEND PROGRAM a'
 
     # execution-part + internal-subprogram-part
-    obj = Main_Program(get_reader("program a\ni=10\ncontains\nsubroutine foo\n"
+    obj = Main_Program.from_source(get_reader("program a\ni=10\ncontains\nsubroutine foo\n"
                                   "end\nend program a"))
     assert str(obj) == ("PROGRAM a\n  i = 10\n  CONTAINS\n  SUBROUTINE foo\n"
                         "  END SUBROUTINE foo\nEND PROGRAM a")
 
     # specification-part + execution-part + internal-subprogram-part
-    obj = Main_Program(get_reader("program a\ninteger i\ni=10\ncontains\n"
+    obj = Main_Program.from_source(get_reader("program a\ninteger i\ni=10\ncontains\n"
                                   "subroutine foo\nend\nend program a"))
     assert str(obj) == ("PROGRAM a\n  INTEGER :: i\n  i = 10\n  CONTAINS\n  "
                         "SUBROUTINE foo\n  END SUBROUTINE foo\nEND PROGRAM a")
@@ -110,17 +110,17 @@ def test_invalid1(f2003_create):
 
     # no end
     with pytest.raises(NoMatchError) as excinfo:
-        _ = Main_Program(get_reader("program a\n"))
+        _ = Main_Program.from_source(get_reader("program a\n"))
     assert "at line 1\n>>>program a" in str(excinfo.value)
 
     # no start
     with pytest.raises(NoMatchError) as excinfo:
-        _ = Main_Program(get_reader("end program a\n"))
+        _ = Main_Program.from_source(get_reader("end program a\n"))
     assert "at line 1\n>>>end program a" in str(excinfo.value)
 
     # name mismatch
     with pytest.raises(FortranSyntaxError) as excinfo:
-        _ = Main_Program(get_reader("program a\nend program b"))
+        _ = Main_Program.from_source(get_reader("program a\nend program b"))
     assert "at line 2\n>>>end program b\nExpecting name 'a'" \
         in str(excinfo.value)
 
@@ -133,7 +133,7 @@ def test_invalid2(f2003_create):
 
     '''
     with pytest.raises(NoMatchError) as excinfo:
-        _ = Main_Program(get_reader("program a\ni=10\ninteger i\n"
+        _ = Main_Program.from_source(get_reader("program a\ni=10\ninteger i\n"
                                     "end program a"))
     assert "ADD CORRECT OUTPUT HERE" in str(excinfo.value)
 
@@ -146,6 +146,6 @@ def test_invalid3(f2003_create):
 
     '''
     with pytest.raises(NoMatchError) as excinfo:
-        _ = Main_Program(get_reader("program a\ncontains\nsubroutine foo\n"
+        _ = Main_Program.from_source(get_reader("program a\ncontains\nsubroutine foo\n"
                                     "end\ni=10\nend program a"))
     assert "ADD CORRECT OUTPUT HERE" in str(excinfo.value)
