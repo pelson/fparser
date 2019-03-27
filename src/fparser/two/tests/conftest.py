@@ -44,3 +44,9 @@ from fparser.two.parser import ParserFactory
 def f2003_create():
     '''Create a fortran 2003 parser class hierarchy'''
     _ = ParserFactory().create(std="f2003")
+
+
+@pytest.fixture
+def f2003_parser():
+    '''Create a fortran 2003 parser class hierarchy'''
+    return ParserFactory().create(std="f2003")

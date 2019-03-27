@@ -170,8 +170,8 @@ class InternalError(FparserException):
 def show_result(func):
     return func
 
-    def new_func(cls, string, **kws):
-        r = func(cls, string, **kws)
+    def new_func(cls, string, *args, **kws):
+        r = func(cls, string, *args, **kws)
         if r is not None and isinstance(r, StmtBase):
             print('%s(%r) -> %r' % (cls.__name__, string, str(r)))
         return r
@@ -251,6 +251,8 @@ class Base(ComparableMixin):
     # 'subclass_names' list belonging to each class defined in this module.
     subclasses = {}
 
+    tmp_global_parser_instance = None
+
     @classmethod
     def fetch_all_subclasses(cls, seen=None, recursion_depth=1):
         '''Given a type (e.g. Fortran2003.Primary), return all possible subtypes
@@ -283,8 +285,8 @@ class Base(ComparableMixin):
         :param parent_cls: the parent class of this object
         :type parent_cls: :py:type:`type`
         """
-        raise RuntimeError('DEPRECATED USE OF NEW.')
-        return cls.from_source(string, parent_cls=parent_cls)
+        #raise RuntimeError('DEPRECATED USE OF NEW.')
+        return cls.from_source(string, parent_cls=parent_cls, parser=Base.tmp_global_parser_instance)
 
     @classmethod
     def from_source(cls, string, parser=None, parent_cls=None):
@@ -299,6 +301,13 @@ class Base(ComparableMixin):
         """
 
         from fparser.common import readfortran
+
+        if parser is None:
+            #raise RuntimeError('Parser is None')
+            parser = Base.tmp_global_parser_instance
+            if parser is None:
+                raise RuntimeError('temporary parser not defined, and not passed either.')
+
         if parent_cls is None:
             parent_cls = [cls]
         elif cls not in parent_cls:
@@ -318,7 +327,7 @@ class Base(ComparableMixin):
                 obj = None
             else:
                 try:
-                    obj = cls.from_source(item.line, parent_cls=parent_cls)
+                    obj = parser.parse(item.line, cls)
                     #obj = item.parse_line(cls, parent_cls)
                 except NoMatchError:
                     obj = None
@@ -334,7 +343,7 @@ class Base(ComparableMixin):
             # IMPORTANT: if string is FortranReaderBase then cls must
             # restore readers content when no match is found.
             try:
-                result = cls.match(string)
+                result = cls.match(string, parser=parser)
             except NoMatchError as msg:
                 if str(msg) == '%s: %r' % (cls.__name__, string):
                     # avoid recursion 1.
@@ -356,7 +365,7 @@ class Base(ComparableMixin):
                 if subcls in parent_cls:  # avoid recursion 2.
                     continue
                 try:
-                    obj = subcls.from_source(string, parent_cls=parent_cls)
+                    obj = subcls.from_source(string, parent_cls=parent_cls, parser=parser)
                 except NoMatchError as msg:
                     obj = None
                 if obj is not None:
@@ -442,7 +451,8 @@ content : tuple
               enable_if_construct_hook=False,
               enable_where_construct_hook=False,
               enable_select_type_construct_hook=False,
-              enable_case_construct_hook=False):
+              enable_case_construct_hook=False,
+              parser=None):
         '''
         Checks whether the content in reader matches the given
         type of block statement (e.g. DO..END DO, IF...END IF etc.)
@@ -473,10 +483,10 @@ content : tuple
 
         if startcls is not None:
             # Deal with any preceding comments and/or includes
-            add_comments_includes(content, reader)
+            add_comments_includes(content, reader, parser)
             # Now attempt to match the start of the block
             try:
-                obj = startcls.from_source(reader)
+                obj = startcls.from_source(reader, parser=parser)
             except NoMatchError:
                 obj = None
             if obj is None:
@@ -509,7 +519,7 @@ content : tuple
         while i < len(classes):
             if enable_do_label_construct_hook:
                 try:
-                    obj = startcls.from_source(reader)
+                    obj = startcls.from_source(reader, parser=parser)
                 except NoMatchError:
                     obj = None
                 if obj is not None:
@@ -521,7 +531,7 @@ content : tuple
             # Attempt to match the i'th subclass
             cls = classes[i]
             try:
-                obj = cls.from_source(reader)
+                obj = cls.from_source(reader, parser=parser)
             except NoMatchError:
                 obj = None
             if obj is None:
@@ -681,7 +691,7 @@ class SequenceBase(Base):
 ::
     <sequence-base> = <obj>, <obj> [ , <obj> ]...
     """
-    def match(separator, subcls, string):
+    def match(separator, subcls, string, parser=None):
         line, repmap = string_replace_map(string)
         if isinstance(separator, str):
             splitted = line.split(separator)
@@ -692,7 +702,7 @@ class SequenceBase(Base):
             return
         lst = []
         for p in splitted:
-            lst.append(subcls.from_source(repmap(p.strip())))
+            lst.append(subcls.from_source(repmap(p.strip()), parser=parser))
         return separator, tuple(lst)
     match = staticmethod(match)
 
@@ -729,7 +739,7 @@ class UnaryOpBase(Base):
     def tostr(self):
         return '%s %s' % tuple(self.items)
 
-    def match(op_pattern, rhs_cls, string, exclude_op_pattern=None):
+    def match(op_pattern, rhs_cls, string, exclude_op_pattern=None, parser=None):
         m = op_pattern.match(string)
         if not m:
             return
@@ -740,7 +750,7 @@ class UnaryOpBase(Base):
         if exclude_op_pattern is not None:
             if exclude_op_pattern.match(op):
                 return
-        return op, rhs_cls.from_source(rhs)
+        return op, rhs_cls.from_source(rhs, parser=parser)
     match = staticmethod(match)
 
 
@@ -751,7 +761,7 @@ class BinaryOpBase(Base):
     <op> is searched from right by default.
     """
     def match(lhs_cls, op_pattern, rhs_cls, string, right=True,
-              exclude_op_pattern=None, is_add=False):
+              exclude_op_pattern=None, is_add=False, parser=None):
         line, repmap = string_replace_map(string)
         if isinstance(op_pattern, str):
             if right:
@@ -781,8 +791,8 @@ class BinaryOpBase(Base):
             if exclude_op_pattern.match(op):
                 return
 
-        lhs_obj = lhs_cls.from_source(repmap(lhs))
-        rhs_obj = rhs_cls.from_source(repmap(rhs))
+        lhs_obj = lhs_cls.from_source(repmap(lhs), parser=parser)
+        rhs_obj = rhs_cls.from_source(repmap(rhs), parser=parser)
         return lhs_obj, op.replace(' ', ''), rhs_obj
     match = staticmethod(match)
 
@@ -795,7 +805,7 @@ class SeparatorBase(Base):
 ::
     <separator-base> = [ <lhs> ] : [ <rhs> ]
     """
-    def match(lhs_cls, rhs_cls, string, require_lhs=False, require_rhs=False):
+    def match(lhs_cls, rhs_cls, string, require_lhs=False, require_rhs=False, parser=None):
         line, repmap = string_replace_map(string)
         if ':' not in line:
             return
@@ -806,13 +816,13 @@ class SeparatorBase(Base):
         if lhs:
             if lhs_cls is None:
                 return
-            lhs_obj = lhs_cls.from_source(repmap(lhs))
+            lhs_obj = lhs_cls.from_source(repmap(lhs), parser)
         elif require_lhs:
             return
         if rhs:
             if rhs_cls is None:
                 return
-            rhs_obj = rhs_cls.from_source(repmap(rhs))
+            rhs_obj = rhs_cls.from_source(repmap(rhs), parser)
         elif require_rhs:
             return
         return lhs_obj, rhs_obj
@@ -835,7 +845,7 @@ class KeywordValueBase(Base):
     <keyword-value-base> = [ <lhs> = ] <rhs>
     """
     @staticmethod
-    def match(lhs_cls, rhs_cls, string, require_lhs=True, upper_lhs=False):
+    def match(lhs_cls, rhs_cls, string, require_lhs=True, upper_lhs=False, parser=None):
         '''
         :param lhs_cls: list, tuple or single value of classes to attempt to
                         match LHS against (in order), or string containing
@@ -858,7 +868,7 @@ class KeywordValueBase(Base):
             for s in lhs_cls:
                 obj = KeywordValueBase.match(s, rhs_cls, string,
                                              require_lhs=require_lhs,
-                                             upper_lhs=upper_lhs)
+                                             upper_lhs=upper_lhs, parser=parser)
                 if obj:
                     return obj
             return obj
@@ -866,7 +876,7 @@ class KeywordValueBase(Base):
         # character as it could itself hold a string constant containing
         # an '=', e.g. FMT='("Hello = False")'
         from fparser.two.Fortran2003 import Char_Literal_Constant
-        if not Char_Literal_Constant.match(string) and "=" in string:
+        if not Char_Literal_Constant.match(string, parser) and "=" in string:
             lhs, rhs = string.split('=', 1)
             lhs = lhs.rstrip()
         else:
@@ -878,14 +888,14 @@ class KeywordValueBase(Base):
         if not lhs:
             if require_lhs:
                 return
-            return None, rhs_cls.from_source(rhs)
+            return None, rhs_cls.from_source(rhs, parser)
         if isinstance(lhs_cls, str):
             if upper_lhs:
                 lhs = lhs.upper()
             if lhs_cls != lhs:
                 return
-            return lhs, rhs_cls.from_source(rhs)
-        return lhs_cls.from_source(lhs), rhs_cls.from_source(rhs)
+            return lhs, rhs_cls.from_source(rhs, parser)
+        return lhs_cls.from_source(lhs, parser), rhs_cls.from_source(rhs, parser)
 
     def tostr(self):
         if self.items[0] is None:
@@ -904,7 +914,7 @@ class BracketBase(Base):
 
     '''
     @staticmethod
-    def match(brackets, cls, string, require_cls=True):
+    def match(brackets, cls, string, require_cls=True, parser=None):
         '''A generic match method for all types of bracketed
         expressions.
 
@@ -953,7 +963,7 @@ class BracketBase(Base):
             return None
         if not line and (not cls or not require_cls):
             return left, None, right
-        return left, cls.from_source(line), right
+        return left, cls.from_source(line, parser), right
 
     def tostr(self):
         '''
@@ -988,7 +998,7 @@ class NumberBase(Base):
     <number-base> = <number> [ _ <kind-param> ]
     """
 
-    def match(number_pattern, string):
+    def match(number_pattern, string, parser=None):
         m = number_pattern.match(string.replace(' ', ''))
         if m is None:
             return
@@ -1012,7 +1022,7 @@ class CallBase(Base):
 ::
     <call-base> = <lhs> ( [ <rhs> ] )
     """
-    def match(lhs_cls, rhs_cls, string, upper_lhs=False, require_rhs=False):
+    def match(lhs_cls, rhs_cls, string, upper_lhs=False, require_rhs=False, parser=None):
         if not string.endswith(')'):
             return
         line, repmap = string_replace_map(string)
@@ -1034,13 +1044,13 @@ class CallBase(Base):
             if lhs_cls != lhs:
                 return
         else:
-            lhs = lhs_cls.from_source(lhs)
+            lhs = lhs_cls.from_source(lhs, parser=parser)
         if rhs:
             if isinstance(rhs_cls, str):
                 if rhs_cls != rhs:
                     return
             else:
-                rhs = rhs_cls.from_source(rhs)
+                rhs = rhs_cls.from_source(rhs, parser=parser)
             return lhs, rhs
         elif require_rhs:
             return
@@ -1058,9 +1068,9 @@ class CALLBase(CallBase):
 ::
     <CALL-base> = <LHS> ( [ <rhs> ] )
     """
-    def match(lhs_cls, rhs_cls, string, require_rhs=False):
+    def match(lhs_cls, rhs_cls, string, require_rhs=False, parser=None):
         return CallBase.match(lhs_cls, rhs_cls, string,
-                              upper_lhs=True, require_rhs=require_rhs)
+                              upper_lhs=True, require_rhs=require_rhs, parser=parser)
     match = staticmethod(match)
 
 
@@ -1073,10 +1083,10 @@ Attributes
 ----------
 string
     """
-    def match(pattern, string):
+    def match(pattern, string, parser=None):
         if isinstance(pattern, (list, tuple)):
             for p in pattern:
-                obj = StringBase.match(p, string)
+                obj = StringBase.match(p, string, parser=parser)
                 if obj is not None:
                     return obj
             return
@@ -1113,7 +1123,7 @@ class STRINGBase(StringBase):
     '''
 
     @staticmethod
-    def match(my_pattern, string):
+    def match(my_pattern, string, parser):
         '''Matches an input string with a specified pattern. Casts the string
         to upper case before performing a match and, if there is a
         match, returns the string in upper case.
@@ -1131,9 +1141,10 @@ class STRINGBase(StringBase):
         make use of the pattern class, whose match method behaves like
         a regular expression. For example:
 
+        # TODO: implement a doctest.
         from fparser.two import pattern_tools
         pattern = pattern_tools.intrinsic_type_name
-        result = STRINGBase.match(pattern, "logical")
+        result = STRINGBase.match(pattern, "logical", parser=parser)
 
         :param pattern: the pattern to match
         :type pattern: `list`, `tuple`, `str` or an `re` expression
@@ -1151,7 +1162,7 @@ class STRINGBase(StringBase):
                 "{0}".format(type(string)))
         if isinstance(my_pattern, (list, tuple)):
             for child in my_pattern:
-                result = STRINGBase.match(child, string)
+                result = STRINGBase.match(child, string, parser=parser)
                 if result:
                     return result
             return None
@@ -1213,7 +1224,7 @@ class EndStmtBase(StmtBase):
     <end-stmt-base> = END [ <stmt> [ <stmt-name>] ]
     """
     @staticmethod
-    def match(stmt_type, stmt_name, string, require_stmt_type=False):
+    def match(stmt_type, stmt_name, string, require_stmt_type=False, parser=None):
         start = string[:3].upper()
         if start != 'END':
             return
@@ -1230,7 +1241,7 @@ class EndStmtBase(StmtBase):
         if line:
             if stmt_name is None:
                 return
-            return stmt_type, stmt_name.from_source(line)
+            return stmt_type, stmt_name.from_source(line, parser)
         return stmt_type, None
 
     def init(self, stmt_type, stmt_name):
@@ -1284,7 +1295,7 @@ class WORDClsBase(Base):
 
     '''
     @staticmethod
-    def match(pattern, cls, string, check_colons=False, require_cls=False):
+    def match(pattern, cls, string, check_colons=False, require_cls=False, parser=None):
         ''':param pattern: the pattern of the WORD to match. This can be a \
         string, a list of strings or a tuple of strings.
         :type pattern: str, tuple of str or list of str.
@@ -1302,7 +1313,7 @@ class WORDClsBase(Base):
                 try:
                     obj = WORDClsBase.match(p, cls, string,
                                             check_colons=check_colons,
-                                            require_cls=require_cls)
+                                            require_cls=require_cls, parser=parser)
                 except NoMatchError:
                     obj = None
                 if obj is not None:
@@ -1329,7 +1340,7 @@ class WORDClsBase(Base):
                 return pattern, None
             if cls is None:
                 return
-            return pattern, cls.from_source(line)
+            return pattern, cls.from_source(line, parser=parser)
         m = pattern.match(string)
         if m is None:
             return
@@ -1351,7 +1362,7 @@ class WORDClsBase(Base):
             return pattern_value, None
         if cls is None:
             return
-        return pattern_value, cls.from_source(line)
+        return pattern_value, cls.from_source(line, parser=parser)
 
     def tostr(self):
         '''Convert the class into Fortran.
@@ -1391,7 +1402,7 @@ class Type_Declaration_StmtBase(StmtBase):
 
     @staticmethod
     def match(decl_type_spec_cls, attr_spec_list_cls,
-              entity_decl_list_cls, string):
+              entity_decl_list_cls, string, parser):
         line, repmap = string_replace_map(string)
         i = line.find('::')
         if i != -1:
@@ -1409,7 +1420,7 @@ class Type_Declaration_StmtBase(StmtBase):
                 if m is None:
                     return
                 i = m.start()
-        type_spec = decl_type_spec_cls.from_source(repmap(line[:i].rstrip()))
+        type_spec = decl_type_spec_cls.from_source(repmap(line[:i].rstrip()), parser=parser)
         if type_spec is None:
             return
         line = line[i:].lstrip()
@@ -1417,7 +1428,7 @@ class Type_Declaration_StmtBase(StmtBase):
             i = line.find('::')
             if i == -1:
                 return
-            attr_specs = attr_spec_list_cls.from_source(repmap(line[1:i].strip()))
+            attr_specs = attr_spec_list_cls.from_source(repmap(line[1:i].strip()), parser=parser)
             if attr_specs is None:
                 return
             line = line[i:]
@@ -1425,7 +1436,7 @@ class Type_Declaration_StmtBase(StmtBase):
             attr_specs = None
         if line.startswith('::'):
             line = line[2:].lstrip()
-        entity_decls = entity_decl_list_cls.from_source(repmap(line))
+        entity_decls = entity_decl_list_cls.from_source(repmap(line), parser=parser)
         if entity_decls is None:
             return
         return type_spec, attr_specs, entity_decls

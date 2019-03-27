@@ -92,13 +92,31 @@ def get_module_classes(input_module):
     return module_cls_members
 
 
-class Parser(object):
+class ParserContext(object):
     def __init__(self, root, types):
         self.root_type = root
         self.types = types
+        #: The context of what has already been parsed.
+        self.parse_context = None
+
+        # TEMPORARY global to allow tests to continue to work.
+        print('SETTING')
+        from fparser.two import Fortran2003
+        Fortran2003.Base.tmp_global_parser_instance = self
 
     def __call__(self, source):
-        return self.root_type.from_source(source)
+        # Deprecated interface to allow backwards-compatible source to
+        # continue functioning as before.
+        return self.parse(source, self.root_type)
+
+    def parse(self, source, parse_type=None):
+        """
+        
+        """
+        parse_type = parse_type or self.root_type
+        # NOTE: Iterating over the possible subclasses could be elevated to
+        # this method.
+        return parse_type.from_source(source, parser=self)
 
 
 class ParserFactory(object):
@@ -139,7 +157,7 @@ class ParserFactory(object):
             self._setup(f2003_cls_members)
             # the class hierarchy has been set up so return the top
             # level class that we start from when parsing Fortran code.
-            return Parser(Fortran2003.Program, f2003_cls_members)
+            return ParserContext(Fortran2003.Program, f2003_cls_members)
         elif std == "f2008":
             # we need to find all relevent classes in our Fortran2003
             # and Fortran2008 files and then ensure that where classes
@@ -162,7 +180,7 @@ class ParserFactory(object):
             # level class that we start from when parsing Fortran
             # code. Fortran2008 does not extend the top level class so
             # we return the Fortran2003 one.
-            return Parser(Fortran2003.Program, f2008_cls_members)
+            return ParserContext(Fortran2003.Program, f2008_cls_members)
         else:
             raise ValueError("'{0}' is an invalid standard".format(std))
 

@@ -72,45 +72,45 @@ def test_keywordvaluebase_errors():
     assert obj is None
 
 
-def test_read_stmt_errors():
+def test_read_stmt_errors(f2003_parser):
     ''' Unit tests for the Read class to ensure it rejects invalid
     inputs '''
     from fparser.two.Fortran2003 import Read_Stmt
     # Missing closing parenthesis
-    obj = Read_Stmt.match("READ(unit=23")
+    obj = Read_Stmt.match("READ(unit=23", f2003_parser)
     assert obj is None
     # Missing arguments
-    obj = Read_Stmt.match("READ()")
+    obj = Read_Stmt.match("READ()", f2003_parser)
     assert obj is None
-    obj = Read_Stmt.match("READ")
+    obj = Read_Stmt.match("READ", f2003_parser)
     assert obj is None
     # Wrong argument type
-    obj = Read_Stmt.match("READ a_var")
+    obj = Read_Stmt.match("READ a_var", f2003_parser)
     assert obj is None
-    obj = Read_Stmt.match("READ 13")
+    obj = Read_Stmt.match("READ 13", f2003_parser)
     assert obj is None
     # Missing comma
-    obj = Read_Stmt.match("READ * a_var")
+    obj = Read_Stmt.match("READ * a_var", f2003_parser)
     assert obj is None
     # Missing value/variable after comma
-    obj = Read_Stmt.match("READ 13, ")
+    obj = Read_Stmt.match("READ 13, ", f2003_parser)
     assert obj is None
 
 
-def test_io_ctrl_spec_list_errors():
+def test_io_ctrl_spec_list_errors(f2003_parser):
     ''' Unit tests for the Io_Control_Spec_List class to ensure it
     rejects invalid input '''
     from fparser.two.Fortran2003 import Io_Control_Spec_List
     # Positional arg following named arg
-    obj = Io_Control_Spec_List.match("unit=23, namvar")
+    obj = Io_Control_Spec_List.match("unit=23, namvar", parser=f2003_parser)
     assert obj is None
 
 
-def test_io_ctrl_spec_errors():
+def test_io_ctrl_spec_errors(f2003_parser):
     ''' Unit tests for the Io_Control_Spec class to ensure it
     rejects invalid input '''
     from fparser.two.Fortran2003 import Io_Control_Spec
     # An argument with a name that is not valid within an IO control
     # description
-    obj = Io_Control_Spec.match("not_unit=23")
+    obj = Io_Control_Spec.match("not_unit=23", parser=f2003_parser)
     assert obj is None

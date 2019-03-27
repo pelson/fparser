@@ -100,24 +100,24 @@ def assert_raises(exc, fcls, string):
 #
 
 
-def test_specification_part():
+def test_specification_part(f2003_parser):
     ''' Tests for parsing specification-part (R204). '''
     reader = get_reader('''\
     integer a''')
     tcls = Specification_Part
-    obj = tcls(reader)
+    obj = tcls.from_source(reader, parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'INTEGER :: a'
     assert (repr(obj) == "Specification_Part(Type_Declaration_Stmt("
             "Intrinsic_Type_Spec('INTEGER', None), None, "
             "Entity_Decl(Name('a'), None, None, None)))")
 
-    obj = tcls(get_reader('''\
+    obj = tcls.from_source(get_reader('''\
 type a
 end type a
 type b
 end type b
-'''))
+'''), parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert 'TYPE :: a\nEND TYPE a\nTYPE :: b\nEND TYPE b' in str(obj)
 
@@ -126,13 +126,13 @@ end type b
 #
 
 
-def test_constant():
+def test_constant(f2003_parser):
     ''' Tests that various types of constant expressions are parsed
     correctly (R305). The example here is for Literal_Constant
     subclass. Other literal constant types are tested separately.
     '''
     tcls = Constant
-    obj = tcls('.false.')
+    obj = tcls.from_source('.false.', parser=f2003_parser)
     assert isinstance(obj, Logical_Literal_Constant), repr(obj)
     assert str(obj) == '.FALSE.'
 
@@ -172,56 +172,56 @@ def test_literal_constant():
 #
 
 
-def test_type_param_value():  # R402
+def test_type_param_value(f2003_parser):  # R402
 
     tcls = Type_Param_Value
-    obj = tcls('*')
+    obj = tcls.from_source('*', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == '*'
     assert repr(obj) == "Type_Param_Value('*')"
 
-    obj = tcls(':')
+    obj = tcls.from_source(':', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == ':'
 
-    obj = tcls('1+2')
+    obj = tcls.from_source('1+2', parser=f2003_parser)
     assert isinstance(obj, Level_2_Expr), repr(obj)
     assert str(obj) == '1 + 2'
 
 
-def test_intrinsic_type_spec():  # R403
+def test_intrinsic_type_spec(f2003_parser):  # R403
 
     tcls = Intrinsic_Type_Spec
-    obj = tcls('INTEGER')
+    obj = tcls.from_source('INTEGER', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'INTEGER'
     assert repr(obj) == "Intrinsic_Type_Spec('INTEGER', None)"
 
-    obj = tcls('Integer*2')
+    obj = tcls.from_source('Integer*2', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'INTEGER*2'
 
-    obj = tcls('real*2')
+    obj = tcls.from_source('real*2', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'REAL*2'
 
-    obj = tcls('logical*2')
+    obj = tcls.from_source('logical*2', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'LOGICAL*2'
 
-    obj = tcls('complex*2')
+    obj = tcls.from_source('complex*2', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'COMPLEX*2'
 
-    obj = tcls('character*2')
+    obj = tcls.from_source('character*2', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'CHARACTER*2'
 
-    obj = tcls('double complex')
+    obj = tcls.from_source('double complex', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'DOUBLE COMPLEX'
 
-    obj = tcls('double  precision')
+    obj = tcls.from_source('double  precision', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'DOUBLE PRECISION'
 
@@ -527,23 +527,23 @@ def test_logical_literal_constant():  # R428
     assert str(obj) == '.TRUE._HA'
 
 
-def test_type_attr_spec():  # R431
+def test_type_attr_spec(f2003_parser):  # R431
 
     tcls = Type_Attr_Spec
-    obj = tcls('abstract')
+    obj = tcls.from_source('abstract', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'ABSTRACT'
     assert repr(obj) == "Type_Attr_Spec('ABSTRACT', None)"
 
-    obj = tcls('bind (c )')
+    obj = tcls.from_source('bind (c )', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'BIND(C)'
 
-    obj = tcls('extends(a)')
+    obj = tcls.from_source('extends(a)', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'EXTENDS(a)'
 
-    obj = tcls('private')
+    obj = tcls.from_source('private', parser=f2003_parser)
     assert isinstance(obj, Access_Spec), repr(obj)
     assert str(obj) == 'PRIVATE'
 
@@ -570,17 +570,17 @@ def test_sequence_stmt():  # R434
     assert repr(obj) == "Sequence_Stmt('SEQUENCE')"
 
 
-def test_type_param_def_stmt():  # R435
+def test_type_param_def_stmt(f2003_parser):  # R435
 
     tcls = Type_Param_Def_Stmt
-    obj = tcls('integer ,kind :: a')
+    obj = tcls.from_source('integer ,kind :: a', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'INTEGER, KIND :: a'
     assert (repr(obj) ==
             "Type_Param_Def_Stmt(None, Type_Param_Attr_Spec('KIND'), "
             "Name('a'))")
 
-    obj = tcls('integer*2 ,len :: a=3, b=2+c')
+    obj = tcls.from_source('integer*2 ,len :: a=3, b=2+c', parser=f2003_parser)
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == 'INTEGER*2, LEN :: a = 3, b = 2 + c'
 

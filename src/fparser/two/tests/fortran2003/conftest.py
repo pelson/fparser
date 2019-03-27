@@ -47,6 +47,12 @@ def f2003_create():
     _ = ParserFactory().create(std="f2003")
 
 
+@pytest.fixture
+def f2003_parser():
+    '''A F2003 parser.'''
+    return ParserFactory().create(std="f2003")
+
+
 @pytest.fixture(scope="module", params=[Defined_Unary_Op, Defined_Binary_Op])
 def op_type(request):
     '''Fixture for testing the two types of defined op (unary and

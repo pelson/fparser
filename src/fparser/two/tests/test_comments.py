@@ -43,14 +43,24 @@ from fparser.two.parser import ParserFactory
 _ = ParserFactory().create(std="f2003")
 
 
-def test_ignore_comments():
+import pytest
+
+
+@pytest.fixture
+def f2003_parser():
+    return ParserFactory().create(std="f2003")
+
+
+def test_ignore_comments(f2003_parser):
     ''' Check that the parser does throw away comments when requested '''
-    tree = Program(get_reader('''\
+    source = get_reader('''\
 PROGRAM a_prog
 ! A full line comment
 PRINT *, "Hello" ! This block gets executed
 END PROGRAM a_prog
-    ''', ignore_comments=True))
+    ''', ignore_comments=True)
+    
+    tree = Program.from_source(source, parser=f2003_parser)
     gen = str(tree)
     assert ("PROGRAM a_prog\n"
             "  PRINT *, \"Hello\"\n"
@@ -70,14 +80,14 @@ END PROGRAM a_prog
     assert "block gets executed" not in gen
 
 
-def test_simple_prog():
+def test_simple_prog(f2003_parser):
     ''' Tests simplest case of comments in a program unit '''
-    tree = Program(get_reader('''\
+    tree = Program.from_source(get_reader('''\
 PROGRAM a_prog
 ! A full line comment
 PRINT *, "Hello" ! This block gets executed
 END PROGRAM a_prog
-    ''', ignore_comments=False))
+    ''', ignore_comments=False), parser=f2003_parser)
     assert (str(tree) == "PROGRAM a_prog\n"
             "  ! A full line comment\n"
             "  PRINT *, \"Hello\"\n"
@@ -85,10 +95,10 @@ END PROGRAM a_prog
             "END PROGRAM a_prog\n")
 
 
-def test_ifthen():
+def test_ifthen(f2003_parser):
     ''' Tests for comments within an if-then block '''
     cls = Program
-    tree = cls(get_reader('''\
+    tree = cls.from_source(get_reader('''\
 PROGRAM a_prog
 IF(.TRUE.)THEN
 ! A full line comment
@@ -96,7 +106,7 @@ PRINT *, "Hello"
 ! Another full line comment
 END IF
 END PROGRAM a_prog
-    ''', ignore_comments=False))
+    ''', ignore_comments=False), parser=f2003_parser)
     assert (str(tree) == "PROGRAM a_prog\n"
             "  IF (.TRUE.) THEN\n"
             "    ! A full line comment\n"
@@ -172,7 +182,7 @@ c this comment is a problem
     assert "i = 1 + 2 + 3\n     c this comment is a problem" in str(obj)
 
 
-def test_prog_comments():
+def test_prog_comments(f2003_parser):
     ''' Unit tests for lines in programs containing comments '''
     cls = Program
     reader = get_reader('''\
@@ -184,7 +194,7 @@ def test_prog_comments():
 ! A really problematic comment
 ''', isfree=True, ignore_comments=False)
 
-    obj = cls(reader)
+    obj = cls.from_source(reader, parser=f2003_parser)
     assert type(obj) == Program
     # Check that the AST has the expected structure:
     # Program
@@ -222,7 +232,7 @@ def test_prog_comments():
     assert str(obj).endswith("! A really problematic comment")
 
 
-def test_module_comments():
+def test_module_comments(f2003_parser):
     ''' Tests for comments in modules '''
     source = '''! This is a module
       module my_mod
@@ -232,12 +242,12 @@ def test_module_comments():
 '''
     # Test when the reader is explicitly set to free-form mode
     reader = get_reader(source, isfree=True, ignore_comments=False)
-    prog_unit = Program(reader)
+    prog_unit = Program.from_source(reader, parser=f2003_parser)
     assert type(prog_unit.content[0]) == Comment
     assert str(prog_unit.content[0]) == "! This is a module"
 
 
-def test_function_comments():
+def test_function_comments(f2003_parser):
     ''' Tests for comments in functions '''
     source = '''\
 function my_mod()
@@ -251,7 +261,7 @@ end function my_mod
 '''
     from fparser.two.Fortran2003 import Function_Subprogram
     reader = get_reader(source, isfree=True, ignore_comments=False)
-    fn_unit = Function_Subprogram(reader)
+    fn_unit = Function_Subprogram.from_source(reader, parser=f2003_parser)
     # <class 'fparser.two.Fortran2003.Function_Stmt'>
     #    <type 'NoneType'>
     #    <class 'fparser.two.Fortran2003.Name'>
@@ -276,7 +286,7 @@ end function my_mod
     assert "! That was a function" in str(comment)
 
 
-def test_subroutine_comments():
+def test_subroutine_comments(f2003_parser):
     ''' Tests for comments in subroutines '''
     source = '''\
 subroutine my_mod()
@@ -290,7 +300,7 @@ end subroutine my_mod
 '''
     from fparser.two.Fortran2003 import Subroutine_Subprogram
     reader = get_reader(source, isfree=True, ignore_comments=False)
-    fn_unit = Subroutine_Subprogram(reader)
+    fn_unit = Subroutine_Subprogram.from_source(reader, parser=f2003_parser)
     assert isinstance(fn_unit, Subroutine_Subprogram)
     walk_ast(fn_unit.content, [Comment], debug=True)
     spec_part = fn_unit.content[1]
@@ -306,7 +316,7 @@ end subroutine my_mod
     assert "! Inline comment" in str(comment)
 
 
-def test_derived_type():
+def test_derived_type(f2003_parser):
     ''' Test for comments within declaration of derived type '''
     source = '''\
 type my_type ! Inline comment1
@@ -318,7 +328,7 @@ end type my_type
 '''
     from fparser.two.Fortran2003 import Derived_Type_Def
     reader = get_reader(source, isfree=True, ignore_comments=False)
-    dtype = Derived_Type_Def(reader)
+    dtype = Derived_Type_Def.from_source(reader, parser=f2003_parser)
     assert isinstance(dtype, Derived_Type_Def)
     comments = [(1, "! Inline comment1"),
                 (2, "! First comment"),
@@ -330,7 +340,7 @@ end type my_type
         assert comment[1] in str(dtype.content[idx])
 
 
-def test_action_stmts():
+def test_action_stmts(f2003_parser):
     ''' Tests for comments within action statements such as allocate '''
     # We have to have our allocate() within some other block otherwise
     # we lose the comment (it is deferred until after the current,
@@ -346,7 +356,7 @@ end if
 '''
     from fparser.two.Fortran2003 import If_Construct, Allocate_Stmt
     reader = get_reader(source, isfree=True, ignore_comments=False)
-    ifstmt = If_Construct(reader)
+    ifstmt = If_Construct.from_source(reader, parser=f2003_parser)
     assert isinstance(ifstmt, If_Construct)
     assert isinstance(ifstmt.content[1], Allocate_Stmt)
     assert "a big array" in str(ifstmt)
