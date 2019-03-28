@@ -265,7 +265,7 @@ class Include_Filename(StringBase):  # pylint: disable=invalid-name
     subclass_names = []
 
     @staticmethod
-    def match(string):
+    def match(string, parser):
         '''Match the string with the regular expression file_name in the
         pattern_tools file. The only content that is not accepted is
         an empty string or white space at the start or end of the
@@ -277,7 +277,7 @@ class Include_Filename(StringBase):  # pylint: disable=invalid-name
         :rtype: (str) or NoneType
 
         '''
-        return StringBase.match(pattern.file_name, string)
+        return StringBase.match(pattern.file_name, string, parser=parser)
 
 
 class Include_Stmt(Base):  # pylint: disable=invalid-name
@@ -330,6 +330,7 @@ class Include_Stmt(Base):  # pylint: disable=invalid-name
         # Remove the quotes.
         file_name = rhs[1:-1]
         # Pass the potential filename to the relevant class.
+        print('f:', Include_Filename)
         name = Include_Filename.from_source(file_name, parser=parser)
         if not name:
             raise InternalError(
@@ -760,7 +761,7 @@ class Extended_Intrinsic_Op(StringBase):  # pylint: disable=invalid-name
 
     '''
     @staticmethod
-    def match(string):
+    def match(string, parser):
         '''Implements the matching for the extended-intrinsic-op
         rule. Matches the string with the regular expression
         extended_intrinsic_operator in the pattern_tools file.
@@ -771,7 +772,7 @@ class Extended_Intrinsic_Op(StringBase):  # pylint: disable=invalid-name
         :rtype: (str) or None
 
         '''
-        return StringBase.match(pattern.extended_intrinsic_operator, string)
+        return StringBase.match(pattern.extended_intrinsic_operator, string, parser=parser)
 
 
 class Label(StringBase):  # R313
@@ -3327,7 +3328,7 @@ class Cray_Pointer_Decl(Base):  # pylint: disable=invalid-name
     use_names = ['Cray_Pointer_Name', 'Cray_Pointee_Name', 'Cray_Pointee_Decl']
 
     @staticmethod
-    def match(string):
+    def match(string, parser):
         '''Implements the matching for a Cray-pointer declaration.
 
         :param str string: the string to match as a Cray-pointer \
@@ -3356,9 +3357,9 @@ class Cray_Pointer_Decl(Base):  # pylint: disable=invalid-name
         pointer_name = repmap(split_list[0]).strip()
         pointee_str = repmap(split_list[1]).strip()
         if pointee_str[-1] == ")":
-            return Cray_Pointer_Name.from_source(pointer_name), \
-                Cray_Pointee_Decl.from_source(pointee_str)
-        return Cray_Pointer_Name.from_source(pointer_name), Cray_Pointee_Name.from_source(pointee_str)
+            return Cray_Pointer_Name.from_source(pointer_name, parser), \
+                Cray_Pointee_Decl.from_source(pointee_str, parser)
+        return Cray_Pointer_Name.from_source(pointer_name, parser), Cray_Pointee_Name.from_source(pointee_str, parser)
 
     def tostr(self):
         '''
@@ -3395,7 +3396,7 @@ class Cray_Pointee_Decl(CallBase):  # pylint: disable=invalid-name
     use_names = ['Cray_Pointee_Name', 'Cray_Pointee_Array_Spec']
 
     @staticmethod
-    def match(string):
+    def match(string, parser):
         '''Implements the matching for a Cray-pointee declaration.
 
         :param str string: the string to match as a Cray-pointee \
@@ -3408,7 +3409,7 @@ class Cray_Pointee_Decl(CallBase):  # pylint: disable=invalid-name
         '''
         return CallBase.match(
             Cray_Pointee_Name, Cray_Pointee_Array_Spec, string,
-            require_rhs=True)
+            require_rhs=True, parser=parser)
 
 
 class Cray_Pointee_Array_Spec(Base):  # pylint: disable=invalid-name
@@ -4401,7 +4402,7 @@ class Defined_Op(STRINGBase):  # pylint: disable=invalid-name
     subclass_names = []
 
     @staticmethod
-    def match(string):
+    def match(string, parser):
         '''Implements the matching for a (user) Defined Unary or Binary
         Operator.
 
@@ -4420,7 +4421,7 @@ class Defined_Op(STRINGBase):  # pylint: disable=invalid-name
             # C704. Must not match with an intrinsic-operator or
             # logical-literal-constant
             return None
-        return STRINGBase.match(pattern.abs_defined_op, strip_string)
+        return STRINGBase.match(pattern.abs_defined_op, strip_string, parser=parser)
 
 
 class Mult_Operand(BinaryOpBase):  # R704
@@ -8494,7 +8495,7 @@ class End_Program_Stmt(EndStmtBase):  # R1103
 
     @staticmethod
     def match(string, parser):
-        return EndStmtBase.match('PROGRAM', Program_Name, string, parser)
+        return EndStmtBase.match('PROGRAM', Program_Name, string, parser=parser)
 
 
 class Module(BlockBase):  # R1104
@@ -8706,14 +8707,14 @@ class Module_Nature(STRINGBase):  # pylint: disable=invalid-name
     subclass_names = []
 
     @staticmethod
-    def match(string):
+    def match(string, parser):
         '''
         :param str string: Fortran code to check for a match
         :return: keyword describing module nature ("INTRINSIC" or
                  "NON_INTRINSIC") or nothing if no match is found
         :rtype: string
         '''
-        return STRINGBase.match(['INTRINSIC', 'NON_INTRINSIC'], string)
+        return STRINGBase.match(['INTRINSIC', 'NON_INTRINSIC'], string, parser=parser)
 
 
 class Rename(Base):  # R1111
@@ -8726,7 +8727,7 @@ class Rename(Base):  # R1111
     use_names = ['Local_Name', 'Use_Name', 'Local_Defined_Operator',
                  'Use_Defined_Operator']
 
-    def match(string):
+    def match(string, parser):
         s = string.split('=>', 1)
         if len(s) != 2:
             return
@@ -8743,9 +8744,9 @@ class Rename(Base):  # R1111
                 r = r[1:-1].strip()
                 if not tmp or not r:
                     return
-                return 'OPERATOR', Local_Defined_Operator(tmp), \
-                    Use_Defined_Operator(r)
-        return None, Local_Name(lhs), Use_Name(rhs)
+                return 'OPERATOR', Local_Defined_Operator.from_source(tmp, parser), \
+                    Use_Defined_Operator.from_source(r, parser)
+        return None, Local_Name.from_source(lhs, parser), Use_Name.from_source(rhs, parser)
     match = staticmethod(match)
 
     def tostr(self):
@@ -8799,10 +8800,10 @@ class Block_Data(BlockBase):  # R1116
                  'End_Block_Data_Stmt']
 
     @staticmethod
-    def match(reader):
+    def match(reader, parser):
         return BlockBase.match(
             Block_Data_Stmt, [Specification_Part],
-            End_Block_Data_Stmt, reader)
+            End_Block_Data_Stmt, reader, parser=parser)
 
 
 class Block_Data_Stmt(StmtBase):  # R1117
@@ -8814,7 +8815,7 @@ class Block_Data_Stmt(StmtBase):  # R1117
     use_names = ['Block_Data_Name']
 
     @staticmethod
-    def match(string):
+    def match(string, parser):
         if string[:5].upper() != 'BLOCK':
             return
         line = string[5:].lstrip()
@@ -8823,7 +8824,7 @@ class Block_Data_Stmt(StmtBase):  # R1117
         line = line[4:].lstrip()
         if not line:
             return None,
-        return Block_Data_Name(line),
+        return Block_Data_Name.from_source(line, parser=parser),
 
     def tostr(self):
         if self.items[0] is None:

@@ -42,7 +42,7 @@ from fparser.two.Fortran2003 import Char_Literal_Constant
 from fparser.two.utils import NoMatchError, InternalError
 
 
-def test_match_valid():
+def test_match_valid(f2003_parser):
     ''' Test that valid input is parsed correctly '''
 
     # simple, single quotes

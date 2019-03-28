@@ -117,8 +117,8 @@ def test_include_filename_error(f2003_create, monkeypatch):
 
     '''
 
-    monkeypatch.setattr("fparser.two.Fortran2003.Include_Filename",
-                        lambda file_name: None)
+    monkeypatch.setattr("fparser.two.Fortran2003.Include_Filename.from_source",
+                        lambda file_name, parser: None)
     line = "include ' '"
     with pytest.raises(InternalError) as excinfo:
         _ = Include_Stmt(line)
