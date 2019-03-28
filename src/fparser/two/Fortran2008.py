@@ -118,7 +118,7 @@ class Specification_Part_C1112(Specification_Part):  # C1112
                  'Declaration_Construct_C1112']
 
     @staticmethod
-    def match(reader):
+    def match(reader, parser):
         '''Check whether the input matches the rule
 
         param reader: the fortran file reader containing the line(s)
@@ -134,7 +134,7 @@ class Specification_Part_C1112(Specification_Part):  # C1112
         return BlockBase.match(None, [Use_Stmt, Import_Stmt,
                                       Implicit_Part_C1112,
                                       Declaration_Construct_C1112],
-                               None, reader)
+                               None, reader, parser=parser)
 
 
 class Implicit_Part_C1112(Implicit_Part):  # C1112
@@ -150,7 +150,7 @@ class Implicit_Part_C1112(Implicit_Part):  # C1112
     use_names = ['Implicit_Part_Stmt_C1112', 'Implicit_Stmt']
 
     @staticmethod
-    def match(reader):
+    def match(reader, parser):
         '''Check whether the input matches the rule
 
         param reader: the fortran file reader containing the line(s)
@@ -163,7 +163,7 @@ class Implicit_Part_C1112(Implicit_Part):  # C1112
                  a match or `None` if there is no match
 
         '''
-        return BlockBase.match(None, [Implicit_Part_Stmt_C1112], None, reader)
+        return BlockBase.match(None, [Implicit_Part_Stmt_C1112], None, reader, parser=parser)
 
 
 class Implicit_Part_Stmt_C1112(Implicit_Part_Stmt):  # C1112
@@ -220,7 +220,7 @@ class Submodule(BlockBase):  # R1116 [C1112,C1114]
                  'Module_Subprogram_Part', 'End_Submodule_Stmt']
 
     @staticmethod
-    def match(reader):
+    def match(reader, parser):
         '''Check whether the input matches the rule
 
         param reader: the fortran file reader containing the line(s)
@@ -237,7 +237,7 @@ class Submodule(BlockBase):  # R1116 [C1112,C1114]
         result = BlockBase.match(
             Submodule_Stmt,
             [Specification_Part_C1112, Module_Subprogram_Part],
-            End_Submodule_Stmt, reader)
+            End_Submodule_Stmt, reader, parser=parser)
         return result
 
 
@@ -251,7 +251,7 @@ class Submodule_Stmt(Base):  # R1117
     use_names = ['Submodule_Name', 'Parent_Identifier']
 
     @staticmethod
-    def match(fstring):
+    def match(fstring, parser):
         '''Check whether the input matches the rule
 
         param string fstring : contains the Fortran that we are trying
@@ -293,7 +293,7 @@ class Submodule_Stmt(Base):  # R1117
         parent_id = parent_id_brackets[1:-1].lstrip().rstrip()
         # Format is OK from this Class' perspective. Pass on
         # parent_identifier and submodule name to appropriate classes
-        return Parent_Identifier(parent_id), Submodule_Name(submodule_name)
+        return Parent_Identifier.from_source(parent_id, parser), Submodule_Name.from_source(submodule_name, parser)
 
     def tostr(self):
         '''return the fortran representation of this object'''
@@ -322,7 +322,7 @@ class End_Submodule_Stmt(EndStmtBase):  # R1119
     use_names = ['Submodule_Name']
 
     @staticmethod
-    def match(fstring):
+    def match(fstring, parser):
         '''Check whether the input matches the rule
 
         param string fstring : contains the Fortran that we are trying
@@ -332,7 +332,7 @@ class End_Submodule_Stmt(EndStmtBase):  # R1119
         is a match or `None` if there is no match
 
         '''
-        return EndStmtBase.match('SUBMODULE', Submodule_Name, fstring)
+        return EndStmtBase.match('SUBMODULE', Submodule_Name, fstring, parser=parser)
 
     def get_name(self):  # C1114
         '''Fortran 2008 constraint C1114 return the submodule name as
@@ -363,7 +363,7 @@ class Parent_Identifier(Base):  # R1118 (C1113)
     use_names = ['Ancestor_Module_Name', 'Parent_SubModule_Name']
 
     @staticmethod
-    def match(fstring):
+    def match(fstring, parser):
         '''Check whether the input matches the rule
 
         param string fstring : contains the Fortran that we are trying
@@ -377,11 +377,11 @@ class Parent_Identifier(Base):  # R1118 (C1113)
         len_split_string = len(split_string)
         lhs_name = split_string[0].lstrip().rstrip()
         if len_split_string == 1:
-            return Ancestor_Module_Name(lhs_name), None
+            return Ancestor_Module_Name.from_source(lhs_name, parser), None
         elif len_split_string == 2:
             rhs_name = split_string[1].lstrip().rstrip()
-            return Ancestor_Module_Name(lhs_name), \
-                Parent_SubModule_Name(rhs_name)
+            return Ancestor_Module_Name.from_source(lhs_name, parser), \
+                Parent_SubModule_Name.from_source(rhs_name, parser)
         # we expect at most one ':' in our input so the match fails
         return None
 

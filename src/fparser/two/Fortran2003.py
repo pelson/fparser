@@ -1723,11 +1723,11 @@ class Component_Initialization(Base):  # R444
     subclass_names = []
     use_names = ['Initialization_Expr', 'Null_Init']
 
-    def match(string):
+    def match(string, parser):
         if string.startswith('=>'):
-            return '=>', Null_Init(string[2:].lstrip())
+            return '=>', Null_Init.from_source(string[2:].lstrip(), parser)
         if string.startswith('='):
-            return '=', Initialization_Expr(string[1:].lstrip())
+            return '=', Initialization_Expr.from_source(string[1:].lstrip(), parser)
         return
     match = staticmethod(match)
 
@@ -1784,8 +1784,8 @@ class Proc_Component_PASS_Arg_Name(CALLBase):
     subclass_names = []
     use_names = ['Arg_Name']
 
-    def match(string):
-        return CALLBase.match('PASS', Arg_Name, string)
+    def match(string, parser):
+        return CALLBase.match('PASS', Arg_Name, string, parser=parser)
     match = staticmethod(match)
 
 
@@ -8844,8 +8844,8 @@ class End_Block_Data_Stmt(EndStmtBase):  # R1118
     use_names = ['Block_Data_Name']
 
     @staticmethod
-    def match(string):
-        return EndStmtBase.match('BLOCK DATA', Block_Data_Name, string)
+    def match(string, parser):
+        return EndStmtBase.match('BLOCK DATA', Block_Data_Name, string, parser=parser)
 
 
 #
@@ -8991,7 +8991,7 @@ items : (Procedure_Name_List, )
     use_names = ['Procedure_Name_List']
 
     @staticmethod
-    def match(string):
+    def match(string, parser):
         if string[:6].upper() == 'MODULE':
             line = string[6:].lstrip()
         else:
@@ -8999,7 +8999,7 @@ items : (Procedure_Name_List, )
         if line[:9].upper() != 'PROCEDURE':
             return
         line = line[9:].lstrip()
-        return Procedure_Name_List(line),
+        return Procedure_Name_List.from_source(line, parser),
 
     def tostr(self):
         return 'MODULE PROCEDURE %s' % (self.items[0])
@@ -9172,7 +9172,7 @@ items : ({'INTENT', 'OPTIONAL', 'POINTER', 'PROTECTED', 'SAVE'}, Intent_Spec)
     use_names = ['Intent_Spec']
 
     @staticmethod
-    def match(string):
+    def match(string, parser):
         '''
         Matches procedure arguments.
 
@@ -9186,7 +9186,7 @@ items : ({'INTENT', 'OPTIONAL', 'POINTER', 'PROTECTED', 'SAVE'}, Intent_Spec)
                 return
             if line[0] != '(' or line[-1] != ')':
                 return
-            return 'INTENT', Intent_Spec(line[1:-1].strip())
+            return 'INTENT', Intent_Spec.from_source(line[1:-1].strip(), parser)
         if len(string) == 8 and string.upper() == 'OPTIONAL':
             return 'OPTIONAL', None
         if len(string) == 7 and string.upper() == 'POINTER':
@@ -9214,9 +9214,9 @@ items : (Procedure_Entity_Name, Null_Init)
     subclass_names = ['Procedure_Entity_Name']
     use_names = ['Null_Init']
 
-    def match(string):
+    def match(string, parser):
         return BinaryOpBase.match(Procedure_Entity_Name, '=>',
-                                  Null_Init, string)
+                                  Null_Init, string, parser=parser)
     match = staticmethod(match)
 
 
@@ -9252,7 +9252,7 @@ class Function_Reference(CallBase):  # R1217
 
     def match(string, parser):
         return CallBase.match(
-            Procedure_Designator, Actual_Arg_Spec_List, string, parser)
+            Procedure_Designator, Actual_Arg_Spec_List, string, parser=parser)
     match = staticmethod(match)
 
 
@@ -9447,8 +9447,8 @@ class Prefix(SequenceBase):  # R1227
     subclass_names = ['Prefix_Spec']
     _separator = (' ', re.compile(r'\s+(?=[a-z_])', re.I))
 
-    def match(string):
-        return SequenceBase.match(Prefix._separator, Prefix_Spec, string)
+    def match(string, parser):
+        return SequenceBase.match(Prefix._separator, Prefix_Spec, string, parser=parser)
     match = staticmethod(match)
 
 
@@ -9463,7 +9463,7 @@ class Prefix_Spec(STRINGBase):  # R1226
     """
     subclass_names = ['Declaration_Type_Spec']
 
-    def match(string):
+    def match(string, parser):
         '''
         Matches procedure prefixes.
 
@@ -9472,7 +9472,7 @@ class Prefix_Spec(STRINGBase):  # R1226
         :rtype: str
         '''
         return STRINGBase.match(['ELEMENTAL', 'IMPURE', 'MODULE', 'PURE',
-                                 'RECURSIVE'], string)
+                                 'RECURSIVE'], string, parser=parser)
     match = staticmethod(match)
 
 
@@ -9484,7 +9484,7 @@ class Suffix(Base):  # R1229
     subclass_names = ['Proc_Language_Binding_Spec']
     use_names = ['Result_Name']
 
-    def match(string):
+    def match(string, parser):
         if string[:6].upper() == 'RESULT':
             line = string[6:].lstrip()
             if not line.startswith('('):
@@ -9497,8 +9497,8 @@ class Suffix(Base):  # R1229
                 return
             line = line[i+1:].lstrip()
             if line:
-                return Result_Name(name), Proc_Language_Binding_Spec(line)
-            return Result_Name(name), None
+                return Result_Name.from_source(name, parser), Proc_Language_Binding_Spec.from_source(line, parser)
+            return Result_Name.from_source(name, parser), None
         if not string.endswith(')'):
             return
         i = string.rfind('(')
@@ -9513,7 +9513,7 @@ class Suffix(Base):  # R1229
         line = line[:-6].rstrip()
         if not line:
             return
-        return Result_Name(name), Proc_Language_Binding_Spec(line)
+        return Result_Name.from_source(name, parser), Proc_Language_Binding_Spec.from_source(line, parser)
     match = staticmethod(match)
 
     def tostr(self):
@@ -9617,7 +9617,8 @@ class Dummy_Arg(StringBase):  # R1233
     subclass_names = ['Dummy_Arg_Name']
 
     @staticmethod
-    def match(string): return StringBase.match('*', string)
+    def match(string, parser):
+        return StringBase.match('*', string, parser=parser)
 
 
 class End_Subroutine_Stmt(EndStmtBase):  # R1234

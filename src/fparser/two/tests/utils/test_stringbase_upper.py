@@ -44,7 +44,7 @@ def test_string():
 
     pattern = "HELLO"
     for my_input in ["hello", "HeLlO", "HELLO"]:
-        result = STRINGBase.match(pattern, my_input)
+        result = STRINGBase.match(pattern, my_input, parser=None)
         assert repr(result) == "('{0}',)".format(pattern)
         assert str(result[0]) == pattern
 
@@ -55,7 +55,7 @@ def test_re():
     import re
     pattern = re.compile('[A-Z][0-9]+')
     for my_input in ["a123", "A123"]:
-        result = STRINGBase.match(pattern, my_input)
+        result = STRINGBase.match(pattern, my_input, parser=None)
         assert repr(result) == "('{0}',)".format(my_input.upper())
         assert str(result[0]) == my_input.upper()
 
@@ -68,7 +68,7 @@ def test_list():
     pattern2 = "HELLO"
     pattern_list = [pattern1, pattern2]
     for my_input in ["a123", "A123", "hello", "HeLlO", "HELLO"]:
-        result = STRINGBase.match(pattern_list, my_input)
+        result = STRINGBase.match(pattern_list, my_input, parser=None)
         assert repr(result) == "('{0}',)".format(my_input.upper())
         assert str(result[0]) == my_input.upper()
 
@@ -81,7 +81,7 @@ def test_tuple():
     pattern2 = "HELLO"
     pattern_tuple = (pattern1, pattern2)
     for my_input in ["a123", "A123", "hello", "HeLlO", "HELLO"]:
-        result = STRINGBase.match(pattern_tuple, my_input)
+        result = STRINGBase.match(pattern_tuple, my_input, parser=None)
         assert repr(result) == "('{0}',)".format(my_input.upper())
         assert str(result[0]) == my_input.upper()
 
@@ -95,7 +95,7 @@ def test_pattern_class():
     from fparser.two import pattern_tools
     pattern = pattern_tools.intrinsic_type_name
     for my_input in ["logical", "LoGiCaL", "LOGICAL"]:
-        result = STRINGBase.match(pattern, my_input)
+        result = STRINGBase.match(pattern, my_input, parser=None)
         assert repr(result) == "('{0}',)".format(my_input.upper())
         assert str(result[0]) == my_input.upper()
 
@@ -108,7 +108,7 @@ def test_invalid_pattern():
 
     for invalid_pattern in [None, 123]:
         with pytest.raises(InternalError) as excinfo:
-            _ = STRINGBase.match(invalid_pattern, "hello")
+            _ = STRINGBase.match(invalid_pattern, "hello", parser=None)
         assert ("Supplied pattern should be a list, tuple, str or regular "
                 "expression but found {0}".format(type(invalid_pattern))) \
                 in str(excinfo.value)
@@ -119,7 +119,7 @@ def test_None_string():
     None.
 
     '''
-    result = STRINGBase.match("hello", None)
+    result = STRINGBase.match("hello", None, parser=None)
     assert result is None
 
 
@@ -131,5 +131,5 @@ def test_not_string():
 
     '''
     with pytest.raises(InternalError) as excinfo:
-        _ = STRINGBase.match("hello", 123)
+        _ = STRINGBase.match("hello", 123, parser=None)
     assert "Supplied string should be of type str" in str(excinfo.value)

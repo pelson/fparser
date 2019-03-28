@@ -100,9 +100,8 @@ class ParserContext(object):
         self.parse_context = None
 
         # TEMPORARY global to allow tests to continue to work.
-        print('SETTING')
-        from fparser.two import Fortran2003
-        Fortran2003.Base.tmp_global_parser_instance = self
+        from fparser.two.Fortran2003 import Base
+        Base.tmp_global_parser_instance = self
 
     def __call__(self, source):
         # Deprecated interface to allow backwards-compatible source to
@@ -116,6 +115,7 @@ class ParserContext(object):
         parse_type = parse_type or self.root_type
         # NOTE: Iterating over the possible subclasses could be elevated to
         # this method.
+        from fparser.two.Fortran2003 import Base
         return parse_type.from_source(source, parser=self)
 
 
