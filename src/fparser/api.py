@@ -248,8 +248,6 @@ def walk(stmt, depth=-1, _initial_depth=None):
     if not isinstance(stmt, classes.BeginSource):
         yield stmt, _initial_depth - depth
     if isinstance(stmt, classes.BeginStatement):
-        print(list(stmt.__dict__.keys()))
-        print(stmt.content)
         if not stmt.content:
             return
         last_stmt = stmt.content[-1]
