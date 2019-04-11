@@ -45,7 +45,10 @@ from __future__ import print_function
 import io
 import os.path
 import tempfile
+
 import pytest
+import six
+
 from fparser.common.readfortran import FortranFileReader, FortranStringReader
 import fparser.common.sourceinfo
 import fparser.common.tests.logging_utils
@@ -595,7 +598,7 @@ def test_multi_put_item(ignore_comments):
 
 ##############################################################################
 
-FULL_FREE_SOURCE = '''
+FULL_FREE_SOURCE = u'''
 
 !> Unicode comment: ❤ ✓ ☂ ♞ ☯
 
@@ -608,7 +611,7 @@ program test
 end program test
 '''
 
-FULL_FREE_EXPECTED = ['!> Unicode comment: \u2764 \u2713 \u2602 \u265e \u262f',
+FULL_FREE_EXPECTED = [u'!> Unicode comment: ❤ ✓ ☂ ♞ ☯',
                       'program test',
                       '  implicit none',
                       "  character, paramater :: nature = 'free format'",
@@ -625,7 +628,7 @@ def test_filename_reader():
     os.close(handle)
     try:
         with io.open(filename, mode='w', encoding='UTF-8') as source_file:
-            print(FULL_FREE_SOURCE, file=source_file)
+            source_file.write(FULL_FREE_SOURCE)
 
         unit_under_test = FortranFileReader(filename)
         expected = fparser.common.sourceinfo.FortranFormat(True, False)
@@ -648,7 +651,7 @@ def test_file_reader():
     os.close(handle)
     try:
         with io.open(filename, mode='w', encoding='UTF-8') as source_file:
-            print(FULL_FREE_SOURCE, file=source_file)
+            source_file.write(FULL_FREE_SOURCE)
 
         with io.open(filename, mode='r', encoding='UTF-8') as source_file:
             unit_under_test = FortranFileReader(source_file)

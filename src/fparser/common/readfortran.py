@@ -633,8 +633,24 @@ class FortranReaderBase(object):
             self.close_source()
             return None
         self.linecount += 1
+
+        if six.PY2 and not isinstance(line, six.text_type):
+            # Ensure we always have a unicode object in Python 2.
+            line = unicode(line, 'UTF-8')
+
         # expand tabs, replace special symbols, get rid of nl characters
-        line = line.expandtabs().replace('\xa0', ' ').rstrip()
+        line = line.expandtabs().replace(u'\xa0', u' ').rstrip()
+
+        if six.PY2:
+            # Cast the unicode to str if we can do so safely. This
+            # maximises compatibility with the existing Python 2 tests
+            # and avoids the need to proliferate the use of unicode
+            # literals (e.g. u"") in the parse tree repr.
+            try:
+                line = line.encode('ascii', errors='strict')
+            except UnicodeEncodeError:
+                pass
+
         self.source_lines.append(line)
 
         if ignore_comments and (self.format.is_fixed or self.format.is_f77):
