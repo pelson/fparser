@@ -141,6 +141,7 @@ To read a Fortran code from a string, use `FortranStringReader` class::
 from __future__ import print_function
 
 import logging
+import io
 import os
 import re
 import sys
@@ -1436,7 +1437,7 @@ class FortranFileReader(FortranReaderBase):
             # by creating a new file (tmpfile) with any errors removed
             # (or raising an exception - see make_clean_tmpfile).
             tmpfile = make_clean_tmpfile(file_candidate)
-            self.file = open(tmpfile, 'r')
+            self.file = io.open(tmpfile, 'r', encoding='UTF-8')
             self._close_on_destruction = True
             self._remove_on_destruction = True
         elif hasattr(file_candidate,

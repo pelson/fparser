@@ -42,6 +42,7 @@ Test battery associated with fparser.common.readfortran package.
 '''
 from __future__ import print_function
 
+import io
 import os.path
 import tempfile
 import pytest
@@ -595,6 +596,9 @@ def test_multi_put_item(ignore_comments):
 ##############################################################################
 
 FULL_FREE_SOURCE = '''
+
+!> Unicode comment: ❤ ✓ ☂ ♞ ☯
+
 program test
 
   implicit none
@@ -604,7 +608,8 @@ program test
 end program test
 '''
 
-FULL_FREE_EXPECTED = ['program test',
+FULL_FREE_EXPECTED = ['!> Unicode comment: \u2764 \u2713 \u2602 \u265e \u262f',
+                      'program test',
                       '  implicit none',
                       "  character, paramater :: nature = 'free format'",
                       'end program test']
@@ -619,7 +624,7 @@ def test_filename_reader():
     handle, filename = tempfile.mkstemp(suffix='.f90', text=True)
     os.close(handle)
     try:
-        with open(filename, mode='w') as source_file:
+        with io.open(filename, mode='w', encoding='UTF-8') as source_file:
             print(FULL_FREE_SOURCE, file=source_file)
 
         unit_under_test = FortranFileReader(filename)
@@ -642,10 +647,10 @@ def test_file_reader():
     handle, filename = tempfile.mkstemp(suffix='.f90', text=True)
     os.close(handle)
     try:
-        with open(filename, mode='w') as source_file:
+        with io.open(filename, mode='w', encoding='UTF-8') as source_file:
             print(FULL_FREE_SOURCE, file=source_file)
 
-        with open(filename, mode='r') as source_file:
+        with io.open(filename, mode='r', encoding='UTF-8') as source_file:
             unit_under_test = FortranFileReader(source_file)
 
             expected = fparser.common.sourceinfo.FortranFormat(True, False)
